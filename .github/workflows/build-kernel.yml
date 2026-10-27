@@ -75,7 +75,7 @@ jobs:
           CONFIG_MODULE_FORCE_LOAD=y
           EOF
 
-      - name: Compile Kernel & Wi-Fi Module
+      - name: Compile Kernel and Wi-Fi Module
         run: |
           cd kernel
           export PATH="$(pwd)/../clang/bin:$PATH"
@@ -127,7 +127,7 @@ EOF
           zip -r9 ../OnePlus7-Docker-WiFi-Module.zip *
           cd ..
 
-      - name: Package Kernel Image & AnyKernel3
+      - name: Package Kernel Image and AnyKernel3
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
           cd AnyKernel3
