@@ -114,14 +114,13 @@ jobs:
             exit 1
           fi
 
-          cat << 'EOF' > wifi-module/module.prop
-id=oneplus7-docker-wifi
-name=OnePlus 7 Docker Wi-Fi Driver
-version=1.0
-versionCode=1
-author=thangaraj26
-description=Matching Wi-Fi kernel driver (qca_cld3_wlan.ko) for Docker kernel on LineageOS 22.2
-EOF
+          echo "id=oneplus7-docker-wifi" > wifi-module/module.prop
+          echo "name=OnePlus 7 Docker Wi-Fi Driver" >> wifi-module/module.prop
+          echo "version=1.0" >> wifi-module/module.prop
+          echo "versionCode=1" >> wifi-module/module.prop
+          echo "author=thangaraj26" >> wifi-module/module.prop
+          echo "description=Matching Wi-Fi kernel driver (qca_cld3_wlan.ko) for Docker kernel on LineageOS 22.2" >> wifi-module/module.prop
+
 
           cd wifi-module
           zip -r9 ../OnePlus7-Docker-WiFi-Module.zip *
