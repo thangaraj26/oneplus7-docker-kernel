@@ -2,6 +2,9 @@ name: Build OnePlus 7 Docker Kernel
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
