@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    name: Build Kernel with Docker Support
+    name: Build Kernel with Docker Support & Wi-Fi Module
     runs-on: ubuntu-22.04
 
     steps:
@@ -67,9 +67,12 @@ jobs:
           CONFIG_IP_NF_FILTER=y
           CONFIG_IP_NF_TARGET_MASQUERADE=y
           CONFIG_BPF_SYSCALL=y
+
+          # Enable Force Module Loading
+          CONFIG_MODULE_FORCE_LOAD=y
           EOF
 
-      - name: Compile Kernel
+      - name: Compile Kernel & Wi-Fi Module
         run: |
           cd kernel
           export PATH="$(pwd)/../clang/bin:$PATH"
@@ -83,19 +86,45 @@ jobs:
             CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            Image.gz-dtb dtbs || \
+            Image.gz-dtb dtbs modules || \
           make -j$(nproc --all) O=out \
             CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            Image.gz-dtb || \
+            Image.gz-dtb modules || \
           make -j$(nproc --all) O=out \
             CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            Image.gz
+            Image modules
 
-      - name: Package with AnyKernel3
+      - name: Build Magisk Wi-Fi Driver Module
+        run: |
+          mkdir -p wifi-module/system/vendor/lib/modules
+          WLAN_KO=$(find kernel/out -name "wlan.ko" | head -n 1)
+          if [ -n "$WLAN_KO" ]; then
+            echo "Found compiled wlan.ko at $WLAN_KO"
+            cp "$WLAN_KO" wifi-module/system/vendor/lib/modules/qca_cld3_wlan.ko
+          else
+            echo "ERROR: wlan.ko not found!"
+            find kernel/out -name "*.ko"
+            exit 1
+          fi
+
+          cat << 'EOF' > wifi-module/module.prop
+id=oneplus7-docker-wifi
+name=OnePlus 7 Docker Wi-Fi Driver
+version=1.0
+versionCode=1
+author=thangaraj26
+description=Matching Wi-Fi kernel driver (qca_cld3_wlan.ko) for Docker kernel on LineageOS 22.2
+EOF
+
+          cd wifi-module
+          zip -r9 ../OnePlus7-Docker-WiFi-Module.zip *
+          cd ..
+
+      - name: Package Kernel Image & AnyKernel3
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
           cd AnyKernel3
@@ -104,6 +133,10 @@ jobs:
           sed -i 's/device.name3=.*/device.name3=GM1901/g' anykernel.sh
           sed -i 's/device.name4=.*/device.name4=GM1900/g' anykernel.sh
           sed -i 's/device.name5=.*/device.name5=guacamole/g' anykernel.sh
+          sed -i 's|BLOCK=.*|BLOCK=/dev/block/bootdevice/by-name/boot;|g' anykernel.sh
+          sed -i 's/IS_SLOT_DEVICE=.*/IS_SLOT_DEVICE=1;/g' anykernel.sh
+          # Remove sample tuna patches
+          sed -i '/tuna/d' anykernel.sh
 
           if [ -f ../kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp ../kernel/out/arch/arm64/boot/Image.gz-dtb .
@@ -114,9 +147,19 @@ jobs:
           fi
 
           zip -r9 ../OnePlus7-Docker-Kernel.zip * -x .git README.md *placeholder
+          cd ..
 
-      - name: Upload Flashable Kernel
+          # Also copy raw Image for direct boot_patch.sh packing
+          mkdir -p raw-kernel
+          cp kernel/out/arch/arm64/boot/Image raw-kernel/
+          cp kernel/out/drivers/staging/qcacld-3.0/wlan.ko raw-kernel/qca_cld3_wlan.ko
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: OnePlus7-Docker-Kernel
-          path: OnePlus7-Docker-Kernel.zip
+          name: OnePlus7-Docker-Kernel-Suite
+          path: |
+            OnePlus7-Docker-Kernel.zip
+            OnePlus7-Docker-WiFi-Module.zip
+            raw-kernel/Image
+            raw-kernel/qca_cld3_wlan.ko
