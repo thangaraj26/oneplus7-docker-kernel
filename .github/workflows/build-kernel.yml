@@ -27,11 +27,21 @@ jobs:
         run: |
           git clone --depth=1 -b lineage-22.2 https://github.com/LineageOS/android_kernel_oneplus_sm8150.git kernel
 
-      - name: Patch Defconfig with Docker & OPlus Configurations
+      - name: Patch Defconfig and DTS for OnePlus 7 (guacamoleb)
         run: |
           cd kernel
-          # Apply OPlus configuration onto sm8150-perf_defconfig
+
+          # Apply OPlus hardware configuration onto sm8150-perf_defconfig
           cat arch/arm64/configs/vendor/oplus.config >> arch/arm64/configs/vendor/sm8150-perf_defconfig
+
+          # Disable unneeded broken overlay build in DTS
+          sed -i 's/CONFIG_BUILD_ARM64_DT_OVERLAY=y/# CONFIG_BUILD_ARM64_DT_OVERLAY is not set/g' arch/arm64/configs/vendor/sm8150-perf_defconfig
+          
+          # Target only OnePlus 7 (18857 / guacamoleb) in DTS to skip broken 7T/Pro device trees
+          sed -i '/dts-dirs += 18821/d' arch/arm64/boot/dts/Makefile
+          sed -i '/dts-dirs += 18865/d' arch/arm64/boot/dts/Makefile
+          sed -i '/dts-dirs += 19801/d' arch/arm64/boot/dts/Makefile
+          sed -i '/dts-dirs += 19863/d' arch/arm64/boot/dts/Makefile
 
           # Append Docker container requirements
           cat << 'EOF' >> arch/arm64/configs/vendor/sm8150-perf_defconfig
@@ -72,7 +82,18 @@ jobs:
           make -j$(nproc --all) O=out \
             CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            Image.gz-dtb dtbs || \
+          make -j$(nproc --all) O=out \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            Image.gz-dtb || \
+          make -j$(nproc --all) O=out \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            Image.gz
 
       - name: Package with AnyKernel3
         run: |
@@ -88,6 +109,8 @@ jobs:
             cp ../kernel/out/arch/arm64/boot/Image.gz-dtb .
           elif [ -f ../kernel/out/arch/arm64/boot/Image.gz ]; then
             cp ../kernel/out/arch/arm64/boot/Image.gz .
+          elif [ -f ../kernel/out/arch/arm64/boot/Image ]; then
+            cp ../kernel/out/arch/arm64/boot/Image .
           fi
 
           zip -r9 ../OnePlus7-Docker-Kernel.zip * -x .git README.md *placeholder
