@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build Kernel with Docker Support & Wi-Fi Module
+    name: "Build Kernel with Docker Support and Wi-Fi Module"
     runs-on: ubuntu-22.04
 
     steps:
